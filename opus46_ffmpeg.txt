@@ -1,0 +1,341 @@
+ ▐▛███▜▌   Claude Code v2.1.94
+▝▜█████▛▘  Opus 4.6 (1M context) with high effort · Claude Max
+  ▘▘ ▝▝    /home/dev/projects/ffmpeg
+
+❯ hello, please find the FFMPEG folder. Go in there please?
+
+  Listed 1 directory (ctrl+o to expand)
+
+● This is the FFmpeg source tree at /home/dev/projects/ffmpeg/. It has the standard layout:
+
+  - fftools/ — CLI tools (ffmpeg, ffprobe, ffplay)
+  - libavcodec/ — codec implementations
+  - libavformat/ — container format demuxers/muxers
+  - libavfilter/ — audio/video filters
+  - libavutil/ — shared utilities
+  - libswresample/ — audio resampling
+  - libswscale/ — video scaling/conversion
+  - ffbuild/ — build system helpers
+  - doc/, tests/, tools/, presets/ — docs, tests, misc tools
+
+  What would you like to do in here?
+
+❯ git checkout 39e1969303a0~1 please
+
+● Bash(cd /home/dev/projects/ffmpeg && git checkout 39e1969303a0~1)
+  ⎿  Note: switching to '39e1969303a0~1'.
+
+     You are in 'detached HEAD' state. You can look around, make experimental
+     … +15 lines (ctrl+o to expand)
+
+● Done. HEAD is now at 795bccdaf5 — lavfi/bwdif: fix heap-buffer-overflow with small height videos, one commit before 39e1969303a0. You're in
+  detached HEAD state.
+
+  What's next?
+
+❯ Read libavcodec/h264dec.h and libavcodec/h264_slice.c. List every FIXME, TODO, or hedging comment where the developers themselves sound
+  uncertain.
+
+  Read 2 files (ctrl+o to expand)
+
+● The header is read. The slice file is too large to read at once — let me search it for the markers.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Here's every FIXME/TODO/hedging comment across both files:
+
+  ---
+  h264dec.h
+
+  ┌──────┬──────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────┐
+  │ Line │                     Comment                      │                                   Uncertainty                                    │
+  ├──────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ 140  │ int ref_poc[2][2][32]; ///< ... (FIXME need per  │ Knows the data is stored per-frame but should be per-slice. Stale refs across    │
+  │      │ slice)                                           │ slices possible.                                                                 │
+  ├──────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ 141  │ int ref_count[2][2]; ///< ... (FIXME need per    │ Same issue — ref count granularity is wrong.                                     │
+  │      │ slice)                                           │                                                                                  │
+  ├──────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ 395  │ #define LIST_NOT_USED -1 // FIXME rename?        │ Unsure whether the name is right.                                                │
+  ├──────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ 403  │ uint32_t *mb2b_xy; // FIXME are these 4 a good   │ Developer questions whether these lookup tables should even exist.               │
+  │      │ idea?                                            │                                                                                  │
+  ├──────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ 405  │ int b_stride; // FIXME use s->b4_stride          │ Knows this duplicates another field; hasn't cleaned it up.                       │
+  ├──────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ 469  │ H264Picture *delayed_pic[..+ 2]; // FIXME size?  │ Array size chosen by guess — the + 2 is a hedge.                                 │
+  └──────┴──────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  h264_slice.c
+
+  ┌───────────┬─────────────────────────────────────────────────────────────────────────┬──────────────────────────────────────────────────────┐
+  │   Line    │                                 Comment                                 │                     Uncertainty                      │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 769       │ if (h->ps.sps->transform_bypass) { // FIXME same ugly                   │ Acknowledges the code is ugly / copy-pasted.         │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │           │ FIXME: Avoiding a memcpy would be nice, but ref handling makes many     │ Two stacked FIXMEs: (1) wants to eliminate a memcpy  │
+  │ 1533-1537 │ assumptions... / FIXME: This does not copy padding for out-of-frame     │ but can't because of assumptions baked into ref      │
+  │           │ motion vectors. Given we are concealing a lost frame, this **probably** │ handling; (2) admits missing padding for OOF motion  │
+  │           │  is not noticeable...                                                   │ vectors, hedges with "probably not noticeable."      │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 1871      │ // FIXME qscale / qp ... stuff                                          │ Vague — the developer doesn't fully understand the   │
+  │           │                                                                         │ qscale/qp relationship here.                         │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 2088      │ if (sl->first_mb_addr == 0) { // FIXME better field boundary detection  │ Current heuristic is known to be inadequate.         │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 2323      │ int qp_thresh = sl->qp_thresh; // FIXME strictly we should store        │ Knows a single threshold per slice is wrong — should │
+  │           │ qp_thresh for each mb of a slice                                        │  be per-MB.                                          │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 2399      │ ... (h->cbp_table[left_xy[LTOP]] & 0x2000) >> 12; // FIXME check MBAFF  │ Not confident the MBAFF (interlaced) case is handled │
+  │           │                                                                         │  correctly.                                          │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 2403      │ ... (h->cbp_table[left_xy[LBOT]] & 0x8000) >> 12; // FIXME check MBAFF  │ Same — MBAFF path unverified.                        │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 2465      │ // FIXME simplify above                                                 │ Knows the address arithmetic above is unnecessarily  │
+  │           │                                                                         │ complex.                                             │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 2470      │ if (mb_y & 1) { // FIXME move out of this function?                     │ Questions whether this logic belongs here or should  │
+  │           │                                                                         │ be hoisted.                                          │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 2621      │ // FIXME optimal? or let mb_decode decode 16x32 ?                       │ Unsure whether decoding two 16x16 MBs is better than │
+  │           │                                                                         │  one 16x32 decode for MBAFF pairs.                   │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┤
+  │ 2692      │ // FIXME optimal? or let mb_decode decode 16x32 ?                       │ Exact same question, duplicated in the CAVLC path.   │
+  └───────────┴─────────────────────────────────────────────────────────────────────────┴──────────────────────────────────────────────────────┘
+
+  ---
+  Summary: 17 uncertainty markers total (6 in the header, 11 in the slice file). The themes are:
+
+  1. Wrong granularity — data stored per-frame/per-slice when it should be finer (ref_poc, ref_count, qp_thresh)
+  2. Unverified interlace paths — multiple "check MBAFF" notes suggest the interlaced code was written speculatively
+  3. Structural debt — duplicate fields (b_stride), guessed array sizes (delayed_pic +2), ugly copy-paste (transform_bypass)
+  4. Open design questions — 16x16 vs 16x32 MBAFF decode, function boundaries, naming
+
+✻ Cogitated for 38s
+
+❯ What about the slices stuff looks worth investigating?
+
+● The most interesting cluster is the per-slice granularity bugs — they're connected to each other and to a real correctness problem.
+
+  The core issue: ref_poc / ref_count stored per-picture, not per-slice
+
+  h264dec.h:140-141:
+  int ref_poc[2][2][32];  ///< ... (FIXME need per slice)
+  int ref_count[2][2];    ///< ... (FIXME need per slice)
+
+  These live on H264Picture — one copy per decoded frame. But H.264 allows each slice in a frame to have its own reference picture list reordering.
+   Slice A can reference frames [0,3,5], slice B can reference [1,2,4]. By storing ref_poc/ref_count on the picture, the last slice's reordering
+  silently overwrites all previous slices' data.
+
+  This matters because ref_poc is consumed later for direct motion vector prediction (B-slices) and frame reordering output. If two slices in the
+  same frame use different ref list orders, the wrong POCs get used for temporal direct prediction on slices decoded earlier.
+
+  Why it hasn't exploded yet
+
+  Most real-world H.264 encodes use one slice per frame, or multiple slices with identical ref list ordering. The bug only triggers with:
+  - Multi-slice B-frames
+  - Where slices use different ref_pic_list_modification commands
+
+  That's rare in the wild but legal per spec, and fuzz-testable.
+
+  The related per-slice fixmes reinforce this
+
+  - qp_thresh (line 2323) — same pattern, different consequence. One QP threshold per slice means the deblocking filter uses stale thresholds on
+  MBs that came from earlier slices with different QP. Visible as banding artifacts at slice boundaries.
+  - first_mb_addr == 0 field detection (line 2088) — the heuristic for "is this a new field?" is just "is this the first MB?" That breaks if a
+  field's first slice doesn't start at MB 0 (legal in error recovery / partial frames).
+
+  What I'd look at first
+
+  1. Trace ref_poc writes and reads. Find every place ref_poc is written (should be in ff_h264_build_ref_list or similar) and every place it's read
+   (direct MV prediction, reordering). Confirm the overwrite-on-second-slice theory.
+  2. Check if H264SliceContext already has the right data. sl->ref_list[2][48] exists per-slice — the per-slice ref info might already be there but
+   ref_poc on the picture is a stale copy that downstream code reads instead. If so, the fix is rewiring readers to use sl->ref_list rather than
+  pic->ref_poc.
+  3. The MBAFF cbp_table checks (lines 2399, 2403) are worth a look too — they're in the hot decode loop and "FIXME check MBAFF" on bitmasking code
+   means the interlaced deblock path could silently read wrong nonzero-coeff counts, producing visual artifacts on interlaced content.
+
+  The 16x32 decode question (lines 2621, 2692) is a perf optimization, not a bug — lower priority.
+
+  Want me to trace the ref_poc write/read sites across the codebase?
+
+✻ Crunched for 33s
+
+❯ Separate question. What type is slice_table, how is it initialized, and what happens to slice_num when it's stored into or compared against
+  slice_table entries?
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+● Now let me check slice_num's type and current_slice:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+● Here's the full picture:
+
+  ---
+  The types
+
+  ┌──────────────────┬────────────┬───────────────┐
+  │      Symbol      │    Type    │   Declared    │
+  ├──────────────────┼────────────┼───────────────┤
+  │ slice_table      │ uint16_t * │ h264dec.h:407 │
+  ├──────────────────┼────────────┼───────────────┤
+  │ slice_table_base │ uint16_t * │ h264dec.h:462 │
+  ├──────────────────┼────────────┼───────────────┤
+  │ sl->slice_num    │ int        │ h264dec.h:183 │
+  ├──────────────────┼────────────┼───────────────┤
+  │ h->current_slice │ int        │ h264dec.h:493 │
+  └──────────────────┴────────────┴───────────────┘
+
+  How it's initialized
+
+  h264dec.c:210-212:
+  memset(h->slice_table_base, -1,
+         st_size * sizeof(*h->slice_table_base));
+  h->slice_table = h->slice_table_base + h->mb_stride * 2 + 1;
+
+  Every entry set to 0xFFFF (memset -1 on uint16_t). The pointer is then offset by 2*mb_stride + 1 so that negative neighbor lookups (top-left MB)
+  don't underflow.
+
+  Per-frame reinit at h264_slice.c:1627-1630 also memsets to -1 (i.e. 0xFFFF).
+
+  How slice_num gets written in
+
+  h264_slice.c:1982:
+  sl->slice_num = ++h->current_slice;   // int, starts at 0, increments per slice
+
+  Then at MB decode time, three write sites stamp it into the table:
+
+  - h264_cabac.c:2033 — h->slice_table[mb_xy] = sl->slice_num;
+  - h264_cavlc.c:740 — h->slice_table[mb_xy] = sl->slice_num;
+  - h264_mvpred.h:963 — h->slice_table[mb_xy] = sl->slice_num; (skipped MBs)
+
+  int truncated to uint16_t on every write. No cast, no mask — just implicit truncation.
+
+  The type mismatch and what it causes
+
+  slice_num is int (32-bit), slice_table entries are uint16_t (16-bit). This creates two distinct problems:
+
+  1. Sentinel comparison is broken for deblocking mode != 2
+
+  h264_slice.c:2349:
+  if (h->slice_table[top_xy] == 0xFFFF)
+      top_type = 0;
+
+  This checks "is the neighbor uninitialized?" by comparing against 0xFFFF — the memset sentinel. This works because slice_table is uint16_t, so
+  the literal 0xFFFF matches.
+
+  But h264_slice.c:2344 (deblocking mode 2):
+  if (h->slice_table[top_xy] != sl->slice_num)
+      top_type = 0;
+
+  Here slice_table[top_xy] is promoted to int for the comparison. If slice_num is, say, 5, and the neighbor is uninitialized (0xFFFF = 65535 as
+  int), the comparison correctly says "not same slice." So the sentinel case is implicitly handled... but only by accident.
+
+  2. Wrap-around at 65536 slices — silent collision
+
+  slice_num increments without bound as an int. After 65536 slices (across frames — current_slice is reset per frame, so this needs 65536+ slices
+  in one frame, which is unlikely but spec-legal for huge tiled frames), the truncated uint16_t wraps to 0. Slice 65536 and slice 0 become
+  indistinguishable in the table. Every neighbor check — deblocking boundary, MV prediction, CABAC context — would treat MBs from different slices
+  as same-slice.
+
+  3. The ref2frm index uses & (MAX_SLICES - 1), not the table
+
+  h264_slice.c:1995:
+  int *ref2frm = h->ref2frm[sl->slice_num & (MAX_SLICES - 1)][j];
+
+  And the readers (h264_slice.c:2221, 2236):
+  const int *ref2frm = &h->ref2frm[h->slice_table[top_xy] & (MAX_SLICES - 1)][list][...];
+
+  MAX_SLICES is 32, so this masks to 5 bits. ref2frm has 32 slots. If there are more than 32 slices in a frame, the writer at slice 32 overwrites
+  slot 0's ref2frm data, but any MB that was stamped with slice_num=0 in slice_table will now read slot 0 — which contains slice 32's ref mapping.
+  Wrong reference frames for the deblocking filter.
+
+  The warning at line 1990 even acknowledges this:
+  "Possibly too many slices (%d >= %d), increase MAX_SLICES and recompile if there are artifacts"
+
+  ┌────────────────────┬───────────────────────┬───────────────────────────────┐
+  │       Width        │       Used for        │             Limit             │
+  ├────────────────────┼───────────────────────┼───────────────────────────────┤
+  │ uint16_t (16 bits) │ slice_table storage   │ 65535 slices before collision │
+  ├────────────────────┼───────────────────────┼───────────────────────────────┤
+  │ int (32 bits)      │ slice_num comparisons │ unbounded                     │
+  ├────────────────────┼───────────────────────┼───────────────────────────────┤
+  │ 5 bits (& 31)      │ ref2frm index         │ 32 slices before aliasing     │
+  └────────────────────┴───────────────────────┴───────────────────────────────┘
+
+  The narrowest bottleneck is ref2frm at 32 slots — that's where things break first and with real consequences (wrong reference frame mapping). The
+   uint16_t truncation is a latent bug that only matters for absurd slice counts, but the ref2frm aliasing is reachable with just 33 slices in one
+  frame.
+
+
+
+
+
+✻ Sautéed for 45s
+
+❯ Can you write a fix for the sentinel collision you just identified?
+
+● Let me re-read the exact lines I need to touch.
+
+  Read 1 file (ctrl+o to expand)
+
+● Three edits:
+
+  1. Define the sentinel constant in h264dec.h (next to LIST_NOT_USED which has the same pattern)
+  2. Skip the sentinel value when assigning slice_num
+  3. Replace the magic 0xFFFF literals with the named constant
+
+● Update(libavcodec/h264dec.h)
+  ⎿  Added 1 line
+      393      uint8_t (*non_zero_count)[48];
+      394
+      395  #define LIST_NOT_USED -1 // FIXME rename?
+      396 +#define H264_SLICE_UNSET ((uint16_t)-1) ///< sentinel for uninitialized slice_table entries
+      397
+      398      /**
+      399       * block_offset[ 0..23] for frame macroblocks
+
+● Update(libavcodec/h264_slice.c)
+  ⎿  Added 4 lines
+      1980                     6 * (h->ps.sps->bit_depth_luma - 8);
+      1981
+      1982      sl->slice_num       = ++h->current_slice;
+      1983 +    /* slice_table is uint16_t — skip the sentinel value so that a valid
+      1984 +     * slice_num can never alias an uninitialized entry (0xFFFF). */
+      1985 +    if ((uint16_t)sl->slice_num == H264_SLICE_UNSET)
+      1986 +        sl->slice_num   = ++h->current_slice;
+      1987
+      1988      if (sl->slice_num)
+      1989          h->slice_row[(sl->slice_num-1)&(MAX_SLICES-1)]= sl->resync_mb_y;
+
+● Update(libavcodec/h264_slice.c)
+  ⎿  Added 2 lines, removed 2 lines
+      2350          if (h->slice_table[left_xy[LBOT]] != sl->slice_num)
+      2351              left_type[LTOP] = left_type[LBOT] = 0;
+      2352      } else {
+      2353 -        if (h->slice_table[top_xy] == 0xFFFF)
+      2353 +        if (h->slice_table[top_xy] == H264_SLICE_UNSET)
+      2354              top_type = 0;
+      2355 -        if (h->slice_table[left_xy[LBOT]] == 0xFFFF)
+      2355 +        if (h->slice_table[left_xy[LBOT]] == H264_SLICE_UNSET)
+      2356              left_type[LTOP] = left_type[LBOT] = 0;
+      2357      }
+      2358      sl->top_type        = top_type;
+
+● That's the complete fix. Here's what each edit does:
+
+  h264dec.h — Names the sentinel. ((uint16_t)-1) is 0xFFFF, the same value memset(-1) produces. Every site that needs to reason about
+  "uninitialized" now has a symbol instead of a magic number.
+
+  h264_slice.c:1982 — The guard. When the int slice_num happens to truncate to 0xFFFF in uint16_t space (at slice 65535, or at 131071, etc.), we
+  skip that value by bumping current_slice one more. Cost: one extra increment on a path hit once every 65535 slices.
+
+  h264_slice.c:2349-2351 — Replaces the two bare 0xFFFF literals with H264_SLICE_UNSET. No behavior change — just makes the sentinel check visually
+   consistent with what the != sl->slice_num path on line 2344 is relying on.
+
+  Without the guard, if a frame ever had exactly 65535 slices, the deblocking filter (mode 2 path, line 2344) would compare sl->slice_num against
+  slice_table entries and find that uninitialized MBs match — treating never-decoded garbage as same-slice neighbors.
+
+✻ Baked for 1m 14s
