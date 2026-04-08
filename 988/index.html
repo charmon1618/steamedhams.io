@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>steamedhams.io/988 — What Kills Psychiatric Patients?</title>
+<meta name="description" content="Bayesian decomposition of post-discharge mortality. Drag the sliders. Watch 'their fault' collapse.">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #080c14; }
+  #root { min-height: 100vh; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module">
+const { useState, useMemo } = React;
+
+const FONT = "'JetBrains Mono', 'Fira Code', monospace";
+const BG = "#080c14";
+const PANEL = "#0d1320";
+const BORDER = "#1a2438";
+const DIM = "#5a6a80";
+const BRIGHT = "#e0e8f0";
+const RED = "#ef4444";
+const AMBER = "#f59e0b";
+const GREEN = "#22c55e";
+const CYAN = "#06b6d4";
+const PURPLE = "#a855f7";
+const PINK = "#ec4899";
+
+const BUCKETS = [
+  {
+    key: "med_direct",
+    label: "Direct med kill",
+    short: "QTc / SCD",
+    color: RED,
+    defaultWeight: 8,
+    evidence: "Ray et al (NEJM 2009): antipsychotic users RR 2.0-2.3 for sudden cardiac death vs non-users with same diagnoses. Dose-response confirmed. Clean pharmacological mechanism: drug blocks potassium channels, QT interval extends, fatal arrhythmia.",
+    category: "iatrogenic",
+  },
+  {
+    key: "med_metabolic",
+    label: "Med metabolic syndrome",
+    short: "Weight / diabetes",
+    color: AMBER,
+    defaultWeight: 22,
+    evidence: "Olanzapine: 4-7kg weight gain year 1. CATIE trial: 30% gained >7% body weight in 18 months. 30-40% develop metabolic syndrome beyond baseline. The DIFFERENCE between olanzapine and aripiprazole isolates the iatrogenic component. Takes 5-15 years to kill via MI, stroke, diabetic complications.",
+    category: "iatrogenic",
+  },
+  {
+    key: "behavioral",
+    label: "Behavioral",
+    short: "Smoking / substances",
+    color: CYAN,
+    defaultWeight: 33,
+    evidence: "Smoking: 60-80% prevalence vs 15% gen pop. RR 2.0 for mortality. Substance use: 20-30% comorbid SUD. Physical inactivity: 70% vs 30% gen pop. BUT: akathisia drives smoking, sedation drives inactivity, emotional blunting drives substance use. This bucket has iatrogenic contamination.",
+    category: "patient",
+  },
+  {
+    key: "system",
+    label: "System / access failure",
+    short: "No follow-up / overshadowing",
+    color: PURPLE,
+    defaultWeight: 15,
+    evidence: "50% get no outpatient contact in first week. Diagnostic overshadowing: chest pain attributed to anxiety. Druss et al: 30-40% less likely to receive standard cardiac procedures after MI. Mitchell (2009): only 1 in 4 with metabolic syndrome receiving treatment. Acts as MULTIPLIER on other buckets, not purely additive.",
+    category: "institutional",
+  },
+  {
+    key: "illness",
+    label: "The illness itself",
+    short: "Biology / HPA / genetics",
+    color: GREEN,
+    defaultWeight: 22,
+    evidence: "Pre-antipsychotic era (before 1954): elevated mortality documented. Odegard (1952): SMR 2-3x in Norwegian asylums. Depression to CVD: RR 1.5-2.0 (one of most replicated findings). Schizophrenia + glucose dysregulation documented in 1920s. GWAS: shared genetic variants between schizophrenia and cardiovascular risk.",
+    category: "disease",
+  },
+];
+
+const COHORTS = [
+  { label: "US working-age (25-54)", f: 0.06, smr_all: 6.7, smr_sui: 55, note: "US baseline. Suicide ~6% of all-cause deaths at this age." },
+  { label: "Norway working-age (est.)", f: 0.08, smr_all: 6.7, smr_sui: 55, note: "Norway has lower all-cause mortality than US, so suicide is a larger fraction. Estimated 8%." },
+  { label: "Norway upper bound", f: 0.10, smr_all: 6.7, smr_sui: 55, note: "Upper plausible bound for Norwegian working-age males. Non-suicide excess shrinks substantially." },
+  { label: "Taiwan young adults", f: 0.15, smr_all: 2.97, smr_sui: 10, note: "Young adults 15-24. Suicide is 15-25% of all deaths in this age group." },
+];
+
+function decompose(smr_all, smr_sui, f) {
+  const suicideContribAllCause = smr_sui * f;
+  const nonsuiObsAllCause = smr_all - suicideContribAllCause;
+  const nonsuiSMR = nonsuiObsAllCause / (1 - f);
+  const impossible = nonsuiSMR < 0;
+  const excessAll = smr_all - 1.0;
+  const excessSuicide = (smr_sui - 1) * f;
+  const excessNonSui = excessAll - excessSuicide;
+  const nonsuiExcessSMR = nonsuiSMR - 1.0;
+  return { nonsuiSMR, nonsuiExcessSMR, excessAll, excessSuicide, excessNonSui, impossible };
+}
+
+function runMonteCarlo(weights, contamination, excessNonSuiAllCause, nSamples = 20000) {
+  let seed = 12345;
+  const rand = () => { seed = (seed * 16807 + 0) % 2147483647; return seed / 2147483647; };
+  const randn = () => { const u1 = rand(); const u2 = rand(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); };
+  const gammaSample = (alpha) => {
+    if (alpha < 1) return gammaSample(alpha + 1) * Math.pow(rand(), 1 / alpha);
+    const d = alpha - 1 / 3; const c = 1 / Math.sqrt(9 * d);
+    while (true) {
+      let x, v;
+      do { x = randn(); v = 1 + c * x; } while (v <= 0);
+      v = v * v * v; const u = rand();
+      if (u < 1 - 0.0331 * x * x * x * x) return d * v;
+      if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+    }
+  };
+  const betaSample = (a, b) => { const ga = gammaSample(a); const gb = gammaSample(b); return ga / (ga + gb); };
+  const toBeta = (w) => {
+    const mode = Math.max(0.02, Math.min(0.98, w / 100));
+    const conc = 12;
+    return [Math.max(1.01, mode * (conc - 2) + 1), Math.max(1.01, (1 - mode) * (conc - 2) + 1)];
+  };
+
+  const E = Math.max(0.01, excessNonSuiAllCause);
+  const params = weights.map(toBeta);
+  const results = { means: [0,0,0,0,0], p5: [0,0,0,0,0], p50: [0,0,0,0,0], p95: [0,0,0,0,0], probStatements: {} };
+  const allContribs = [];
+
+  for (let s = 0; s < nSamples; s++) {
+    const raw = params.map(([a, b]) => betaSample(a, b));
+    const total = raw.reduce((a, b) => a + b, 0);
+    allContribs.push(raw.map((r) => (r / total) * E));
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const vals = allContribs.map((c) => c[i]).sort((a, b) => a - b);
+    results.means[i] = vals.reduce((a, b) => a + b, 0) / nSamples;
+    results.p5[i] = vals[Math.floor(nSamples * 0.05)];
+    results.p50[i] = vals[Math.floor(nSamples * 0.5)];
+    results.p95[i] = vals[Math.floor(nSamples * 0.95)];
+  }
+
+  const ct = contamination / 100;
+  let pIatrGtBehav = 0, pInstGt50 = 0, pNotPatient50 = 0;
+  for (let s = 0; s < nSamples; s++) {
+    const c = allContribs[s];
+    const adjIatr = c[0] + c[1] + c[2] * ct;
+    const adjBehav = c[2] * (1 - ct);
+    if (adjIatr > adjBehav) pIatrGtBehav++;
+    if ((adjIatr + c[3]) / E > 0.50) pInstGt50++;
+    if (adjBehav / E < 0.50) pNotPatient50++;
+  }
+  results.probStatements = {
+    iatrGtBehav: pIatrGtBehav / nSamples,
+    instGt50: pInstGt50 / nSamples,
+    notPatient50: pNotPatient50 / nSamples,
+  };
+
+  results.adjustedIatrogenic = results.means[0] + results.means[1] + results.means[2] * ct;
+  results.adjustedBehavioral = results.means[2] * (1 - ct);
+
+  return results;
+}
+
+function BucketView({ results, excessNonSui, expandedBucket, setExpandedBucket }) {
+  const maxVal = Math.max(...results.p95, 0.5) * 1.15;
+  const barH = 52; const gap = 8;
+  const W = 580; const plotLeft = 10; const plotRight = W - 10; const plotW = plotRight - plotLeft;
+  const totalH = BUCKETS.length * (barH + gap) + 60;
+  const toX = (v) => plotLeft + (v / maxVal) * plotW;
+  const step = maxVal > 2 ? 0.5 : maxVal > 1 ? 0.25 : 0.1;
+  const ticks = [];
+  for (let v = 0; v <= maxVal; v += step) ticks.push(Math.round(v * 100) / 100);
+
+  return (
+    <div style={{ background: PANEL, borderRadius: 8, border: `1px solid ${BORDER}`, padding: 16 }}>
+      <div style={{ fontSize: 9, color: DIM, marginBottom: 8 }}>
+        Distributing <b style={{ color: BRIGHT }}>{excessNonSui.toFixed(2)}x</b> non-suicide excess (all-cause units) across 5 buckets. Click a row for evidence.
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${totalH}`} style={{ display: "block" }}>
+        {ticks.map((v) => (
+          <g key={v}>
+            <line x1={toX(v)} y1={0} x2={toX(v)} y2={totalH - 40} stroke={BORDER} strokeWidth={0.5} />
+            <text x={toX(v)} y={totalH - 26} fill={DIM} fontSize={9} fontFamily={FONT} textAnchor="middle">{v}x</text>
+          </g>
+        ))}
+        <text x={W / 2} y={totalH - 8} fill={DIM} fontSize={9} fontFamily={FONT} textAnchor="middle">
+          Excess SMR contribution (all-cause units)
+        </text>
+
+        {BUCKETS.map((b, i) => {
+          const y = i * (barH + gap) + 4;
+          const mean = results.means[i];
+          const p5 = results.p5[i];
+          const p95 = results.p95[i];
+          const p50 = results.p50[i];
+          const share = excessNonSui > 0 ? mean / excessNonSui : 0;
+          return (
+            <g key={b.key} style={{ cursor: "pointer" }} onClick={() => setExpandedBucket(expandedBucket === i ? null : i)}>
+              <rect x={toX(p5)} y={y + barH / 2 - 8} width={Math.max(1, toX(p95) - toX(p5))} height={16}
+                fill={b.color + "22"} stroke={b.color + "44"} strokeWidth={1} rx={3} />
+              <line x1={toX(p50)} y1={y + barH / 2 - 10} x2={toX(p50)} y2={y + barH / 2 + 10}
+                stroke={b.color} strokeWidth={2} />
+              <circle cx={toX(mean)} cy={y + barH / 2} r={4} fill={b.color} stroke={BG} strokeWidth={1.5} />
+              <text x={plotLeft + 4} y={y + 12} fill={b.color} fontSize={10} fontFamily={FONT} fontWeight={600}>{b.label}</text>
+              <text x={plotRight - 4} y={y + 12} fill={BRIGHT} fontSize={10} fontFamily={FONT} textAnchor="end" fontWeight={600}>
+                {mean.toFixed(2)}x ({(share * 100).toFixed(0)}%)
+              </text>
+              <text x={plotRight - 4} y={y + barH - 4} fill={DIM} fontSize={8} fontFamily={FONT} textAnchor="end">
+                90% CI: {p5.toFixed(2)}-{p95.toFixed(2)}
+              </text>
+              <rect x={plotLeft + 4} y={y + barH - 16} width={
+                b.category === "iatrogenic" ? 58 : b.category === "patient" ? 42 : b.category === "institutional" ? 68 : 46
+              } height={14} fill={
+                b.category === "iatrogenic" ? RED + "22" : b.category === "patient" ? CYAN + "22" : b.category === "institutional" ? PURPLE + "22" : GREEN + "22"
+              } rx={3} />
+              <text x={plotLeft + 8} y={y + barH - 6} fill={
+                b.category === "iatrogenic" ? RED : b.category === "patient" ? CYAN : b.category === "institutional" ? PURPLE : GREEN
+              } fontSize={7} fontFamily={FONT}>{b.category}</text>
+            </g>
+          );
+        })}
+
+        {expandedBucket !== null && (() => {
+          const b = BUCKETS[expandedBucket];
+          const y = expandedBucket * (barH + gap) + 4;
+          return (
+            <foreignObject x={plotLeft} y={y + barH + 2} width={plotW} height={80}>
+              <div xmlns="http://www.w3.org/1999/xhtml" style={{ fontSize: 9, color: BRIGHT, lineHeight: 1.6, padding: "8px 10px", background: PANEL, borderRadius: 6, border: `1px solid ${b.color}66` }}>
+                {b.evidence}
+              </div>
+            </foreignObject>
+          );
+        })()}
+      </svg>
+      {expandedBucket !== null && <div style={{ height: 80 }} />}
+      <div style={{ fontSize: 8, color: DIM, marginTop: 8, lineHeight: 1.5, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
+        <b>Caveats:</b> Buckets modeled as additive but interact in reality (system failure multiplies other buckets; metabolic + smoking is synergistic). Attributable fractions can sum to &gt;100% in biology. This model constrains them, underestimating individual contributions.
+      </div>
+    </div>
+  );
+}
+
+function FullView({ results, dec, cohort, contamination }) {
+  const contam = contamination / 100;
+  const adjBehav = results.means[2] * (1 - contam);
+  const adjIatr = results.means[0] + results.means[1] + results.means[2] * contam;
+  const excessAll = dec.excessAll;
+  const excessSui = dec.excessSuicide;
+
+  const segments = [
+    { label: "Suicide", value: excessSui, color: PINK },
+    { label: "Direct med kill", value: results.means[0], color: RED },
+    { label: "Med metabolic", value: results.means[1], color: AMBER },
+    { label: "System failure", value: results.means[3], color: PURPLE },
+    { label: "Illness itself", value: results.means[4], color: GREEN },
+    { label: "Behavioral", value: results.means[2], color: CYAN },
+  ];
+
+  const institutional = excessSui + results.means[0] + results.means[1] + results.means[3];
+  const disease = results.means[4];
+  const sumCheck = segments.reduce((a, s) => a + s.value, 0);
+
+  const W = 580; const H = 420;
+  const barTop = 40; const barH = 50; const barLeft = 30; const barW = W - 60;
+
+  return (
+    <div style={{ background: PANEL, borderRadius: 8, border: `1px solid ${BORDER}`, padding: 16 }}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+        <text x={W / 2} y={20} fill={DIM} fontSize={10} fontFamily={FONT} textAnchor="middle" letterSpacing="0.08em">
+          COMPLETE EXCESS MORTALITY (SMR {cohort.smr_all} - 1.0 = {excessAll.toFixed(2)}x, all-cause units)
+        </text>
+
+        {(() => {
+          let cumX = barLeft;
+          return segments.map((seg) => {
+            const pct = excessAll > 0 ? seg.value / excessAll : 0;
+            const segW = Math.max(0, pct * barW);
+            const x = cumX; cumX += segW;
+            return (
+              <g key={seg.label}>
+                <rect x={x} y={barTop} width={segW} height={barH} fill={seg.color + "55"} stroke={seg.color + "88"} strokeWidth={1} />
+                {segW > 30 && <text x={x + segW / 2} y={barTop + 22} fill={seg.color} fontSize={segW > 60 ? 11 : 8} fontFamily={FONT} textAnchor="middle" fontWeight={700}>{(pct * 100).toFixed(0)}%</text>}
+                {segW > 50 && <text x={x + segW / 2} y={barTop + 36} fill={seg.color} fontSize={7} fontFamily={FONT} textAnchor="middle">{seg.label}</text>}
+              </g>
+            );
+          });
+        })()}
+
+        <text x={barLeft} y={barTop + barH + 28} fill={DIM} fontSize={9} fontFamily={FONT} letterSpacing="0.08em">
+          ACCOUNTABILITY ({contamination}% behavioral contamination)
+        </text>
+
+        {(() => {
+          const instPct = excessAll > 0 ? institutional / excessAll : 0;
+          const disPct = excessAll > 0 ? disease / excessAll : 0;
+          const patPct = excessAll > 0 ? adjBehav / excessAll : 0;
+          const instW = instPct * barW; const disW = disPct * barW; const patW = patPct * barW;
+          const y = barTop + barH + 38;
+          return (
+            <g>
+              <rect x={barLeft} y={y} width={instW} height={34} fill={RED + "22"} stroke={RED + "55"} strokeWidth={1.5} rx={4} />
+              <text x={barLeft + 8} y={y + 14} fill={RED} fontSize={10} fontFamily={FONT} fontWeight={600}>Institutional</text>
+              <text x={barLeft + instW - 8} y={y + 14} fill={RED} fontSize={12} fontFamily={FONT} textAnchor="end" fontWeight={700}>{(instPct * 100).toFixed(0)}%</text>
+              <text x={barLeft + 8} y={y + 28} fill={DIM} fontSize={7} fontFamily={FONT}>iatrogenic + system + suicide</text>
+
+              <rect x={barLeft + instW} y={y} width={disW} height={34} fill={GREEN + "22"} stroke={GREEN + "55"} strokeWidth={1.5} rx={4} />
+              {disW > 35 && <text x={barLeft + instW + disW / 2} y={y + 14} fill={GREEN} fontSize={9} fontFamily={FONT} textAnchor="middle" fontWeight={600}>Disease {(disPct * 100).toFixed(0)}%</text>}
+
+              <rect x={barLeft + instW + disW} y={y} width={patW} height={34} fill={CYAN + "22"} stroke={CYAN + "55"} strokeWidth={1.5} rx={4} />
+              {patW > 30 && <text x={barLeft + instW + disW + patW / 2} y={y + 14} fill={CYAN} fontSize={9} fontFamily={FONT} textAnchor="middle" fontWeight={600}>Patient {(patPct * 100).toFixed(0)}%</text>}
+
+              {contamination > 0 && (() => {
+                const movedPct = (results.means[2] * contam) / excessAll;
+                const movedW = movedPct * barW;
+                return movedW > 5 ? (
+                  <g>
+                    <rect x={barLeft + instW - movedW} y={y} width={movedW} height={34} fill={PINK + "33"} stroke={PINK + "55"} strokeWidth={1} strokeDasharray="4,2" />
+                    {movedW > 25 && <text x={barLeft + instW - movedW / 2} y={y + 42} fill={PINK} fontSize={7} fontFamily={FONT} textAnchor="middle">{contamination}% behavioral moved</text>}
+                  </g>
+                ) : null;
+              })()}
+            </g>
+          );
+        })()}
+
+        <text x={W / 2} y={barTop + barH + 100} fill={BRIGHT} fontSize={13} fontFamily={FONT} textAnchor="middle" fontWeight={600}>
+          "Their own fault": {excessAll > 0 ? (adjBehav / excessAll * 100).toFixed(0) : 0}% of excess deaths
+        </text>
+        <text x={W / 2} y={barTop + barH + 120} fill={DIM} fontSize={10} fontFamily={FONT} textAnchor="middle">
+          f={Math.round(cohort.f * 100)}%, {contamination}% contamination. Behavioral = {adjBehav.toFixed(2)}x of {excessAll.toFixed(2)}x total.
+        </text>
+
+        <text x={W / 2} y={barTop + barH + 155} fill={DIM} fontSize={9} fontFamily={FONT} textAnchor="middle" letterSpacing="0.08em">
+          IN A COHORT OF 1,000 DISCHARGED PATIENTS (1-YEAR)
+        </text>
+
+        {(() => {
+          const baseDeaths = 1000 * 0.003;
+          const obsDeaths = baseDeaths * cohort.smr_all;
+          const excessDeaths = obsDeaths - baseDeaths;
+          const items = [
+            { label: "Expected (gen pop rate)", val: baseDeaths, color: DIM },
+            { label: "Excess: suicide", val: excessAll > 0 ? excessDeaths * (excessSui / excessAll) : 0, color: PINK },
+            { label: "Excess: medications", val: excessAll > 0 ? excessDeaths * (adjIatr / excessAll) : 0, color: RED },
+            { label: "Excess: system failure", val: excessAll > 0 ? excessDeaths * (results.means[3] / excessAll) : 0, color: PURPLE },
+            { label: "Excess: illness itself", val: excessAll > 0 ? excessDeaths * (disease / excessAll) : 0, color: GREEN },
+            { label: "Excess: patient behavior", val: excessAll > 0 ? excessDeaths * (adjBehav / excessAll) : 0, color: CYAN },
+          ];
+          return items.map((item, idx) => (
+            <g key={idx}>
+              <text x={W / 2 - 110} y={barTop + barH + 175 + idx * 16} fill={item.color} fontSize={10} fontFamily={FONT}>{item.label}:</text>
+              <text x={W / 2 + 140} y={barTop + barH + 175 + idx * 16} fill={item.color} fontSize={10} fontFamily={FONT} fontWeight={700} textAnchor="end">{item.val.toFixed(1)}</text>
+            </g>
+          ));
+        })()}
+
+        <text x={W / 2 - 110} y={barTop + barH + 275} fill={BRIGHT} fontSize={10} fontFamily={FONT} fontWeight={700}>Total observed:</text>
+        <text x={W / 2 + 140} y={barTop + barH + 275} fill={BRIGHT} fontSize={10} fontFamily={FONT} fontWeight={700} textAnchor="end">{(1000 * 0.003 * cohort.smr_all).toFixed(0)}</text>
+
+        <text x={W / 2} y={H - 4} fill={DIM} fontSize={7} fontFamily={FONT} textAnchor="middle">
+          All values in all-cause units. Sum: {sumCheck.toFixed(2)}x vs {excessAll.toFixed(2)}x total.
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function ProbView({ results, dec, contamination }) {
+  const probs = results.probStatements;
+  const excessNonSui = dec.excessNonSui;
+  const excessAll = dec.excessAll;
+  const adjBehav = results.means[2] * (1 - contamination / 100);
+
+  const items = [
+    { label: "Iatrogenic (meds) > behavioral", prob: probs.iatrGtBehav, desc: "Probability that medications kill more people than patient behavior does", color: RED },
+    { label: "Institutional responsibility > 50%", prob: probs.instGt50, desc: "Probability that iatrogenic + system failures account for majority of non-suicide excess", color: PURPLE },
+    { label: "Behavioral is NOT majority", prob: probs.notPatient50, desc: "Probability that patient behavior accounts for less than half of non-suicide excess", color: AMBER },
+  ];
+
+  return (
+    <div style={{ background: PANEL, borderRadius: 8, border: `1px solid ${BORDER}`, padding: 20 }}>
+      <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", marginBottom: 16, fontWeight: 600 }}>PROBABILITY STATEMENTS FROM POSTERIOR</div>
+
+      {items.map((item, i) => (
+        <div key={i} style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 11, color: item.color, fontWeight: 600 }}>{item.label}</span>
+            <span style={{ fontSize: 16, color: item.color, fontWeight: 800 }}>{(item.prob * 100).toFixed(0)}%</span>
+          </div>
+          <div style={{ height: 8, background: BORDER, borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${item.prob * 100}%`, background: item.color + "77", borderRadius: 4 }} />
+          </div>
+          <div style={{ fontSize: 9, color: DIM, marginTop: 4 }}>{item.desc}</div>
+        </div>
+      ))}
+
+      <div style={{ marginTop: 16, padding: 14, background: BG, borderRadius: 6, border: `1px solid ${BORDER}` }}>
+        <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 600 }}>WITH {contamination}% BEHAVIORAL CONTAMINATION</div>
+        <div style={{ fontSize: 11, color: BRIGHT, lineHeight: 1.8 }}>
+          <div>Adjusted iatrogenic: <span style={{ color: RED, fontWeight: 700 }}>{excessNonSui > 0 ? (results.adjustedIatrogenic / excessNonSui * 100).toFixed(0) : 0}%</span> of non-suicide excess</div>
+          <div>Adjusted patient behavior: <span style={{ color: CYAN, fontWeight: 700 }}>{excessNonSui > 0 ? (results.adjustedBehavioral / excessNonSui * 100).toFixed(0) : 0}%</span> of non-suicide excess</div>
+          <div>Patient share of ALL excess: <span style={{ color: CYAN, fontWeight: 700 }}>{excessAll > 0 ? (adjBehav / excessAll * 100).toFixed(0) : 0}%</span></div>
+        </div>
+        <div style={{ fontSize: 10, color: AMBER, marginTop: 12, fontWeight: 600 }}>
+          The defense argument "they did it to themselves" covers at most {excessAll > 0 ? (adjBehav / excessAll * 100).toFixed(0) : 0}% of the mortality gap.
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16, padding: 14, background: BG, borderRadius: 6, border: `1px solid ${BORDER}` }}>
+        <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 600 }}>WHAT THIS IS</div>
+        <div style={{ fontSize: 9, color: DIM, lineHeight: 1.7 }}>
+          This is honest: we genuinely don't know the exact split. What we DO know is that the patient-behavior share is unlikely to be dominant.
+          Drag the sliders wherever your intuition says they should be. Set behavioral to maximum. Set iatrogenic to minimum. The conclusion holds.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [weights, setWeights] = useState(BUCKETS.map((b) => b.defaultWeight));
+  const [contamination, setContamination] = useState(20);
+  const [expandedBucket, setExpandedBucket] = useState(null);
+  const [tab, setTab] = useState("buckets");
+  const [cohortIdx, setCohortIdx] = useState(0);
+
+  const cohort = COHORTS[cohortIdx];
+  const dec = decompose(cohort.smr_all, cohort.smr_sui, cohort.f);
+  const results = useMemo(
+    () => runMonteCarlo(weights, contamination, dec.excessNonSui),
+    [weights, contamination, dec.excessNonSui]
+  );
+  const setWeight = (i, v) => { const next = [...weights]; next[i] = v; setWeights(next); };
+
+  return (
+    <div style={{ fontFamily: FONT, background: BG, color: BRIGHT, minHeight: "100vh", padding: 20 }}>
+      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+        <div style={{ marginBottom: 16 }}>
+          <a href="/" style={{ fontFamily: FONT, fontSize: 11, color: "#5a6a80", textDecoration: "none" }}>← steamedhams.io</a>
+        </div>
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>What Kills Psychiatric Patients?</h1>
+        <p style={{ fontSize: 11, color: DIM, marginBottom: 16 }}>
+          Bayesian decomposition of non-suicide excess mortality. All values in all-cause SMR units. 20,000 Monte Carlo samples. Drag the sliders. Watch "their fault" collapse.
+        </p>
+
+        <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+          {["buckets", "full", "probability"].map((t) => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              fontFamily: FONT, fontSize: 10, padding: "5px 12px", borderRadius: 4,
+              border: `1px solid ${tab === t ? CYAN : BORDER}`,
+              background: tab === t ? CYAN + "20" : "transparent",
+              color: tab === t ? CYAN : DIM, cursor: "pointer",
+            }}>
+              {t === "buckets" ? "5 Buckets" : t === "full" ? "Full Picture" : "Probabilities"}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ flex: "0 0 280px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: PANEL, borderRadius: 8, border: `1px solid ${BORDER}`, padding: 14 }}>
+              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 600 }}>
+                REFERENCE POPULATION (f_suicide)
+              </div>
+              {COHORTS.map((c, i) => (
+                <button key={i} onClick={() => setCohortIdx(i)} style={{
+                  fontFamily: FONT, fontSize: 9, padding: "4px 8px", borderRadius: 4, display: "block",
+                  width: "100%", textAlign: "left", marginBottom: 4,
+                  border: `1px solid ${cohortIdx === i ? AMBER : BORDER}`,
+                  background: cohortIdx === i ? AMBER + "15" : "transparent",
+                  color: cohortIdx === i ? AMBER : DIM, cursor: "pointer",
+                }}>
+                  {c.label} (f={Math.round(c.f * 100)}%)
+                </button>
+              ))}
+              <div style={{ fontSize: 8, color: DIM, marginTop: 6, lineHeight: 1.5 }}>{cohort.note}</div>
+              {dec.impossible ? (
+                <div style={{ fontSize: 9, color: RED, marginTop: 4, fontWeight: 600 }}>
+                  Impossible: suicide alone exceeds all-cause at this f
+                </div>
+              ) : (
+                <div style={{ fontSize: 9, color: BRIGHT, marginTop: 6, lineHeight: 1.7 }}>
+                  All-cause SMR: {cohort.smr_all}<br />
+                  Total excess: {dec.excessAll.toFixed(2)}x<br />
+                  Suicide excess: {dec.excessSuicide.toFixed(2)}x<br />
+                  Non-suicide excess: <b>{dec.excessNonSui.toFixed(2)}x</b><br />
+                  Non-suicide SMR: {dec.nonsuiSMR.toFixed(2)}x
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: PANEL, borderRadius: 8, border: `1px solid ${BORDER}`, padding: 14 }}>
+              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", marginBottom: 10, fontWeight: 600 }}>PRIOR WEIGHTS</div>
+              {BUCKETS.map((b, i) => (
+                <div key={b.key} style={{ marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}>
+                    <span style={{ fontSize: 9, color: b.color }}>{b.label}</span>
+                    <span style={{ fontSize: 9, color: BRIGHT, fontWeight: 600 }}>{weights[i]}%</span>
+                  </div>
+                  <input type="range" min={2} max={60} value={weights[i]}
+                    onChange={(e) => setWeight(i, Number(e.target.value))}
+                    style={{ width: "100%", accentColor: b.color, height: 4 }} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: PANEL, borderRadius: 8, border: `1px solid ${BORDER}`, padding: 14 }}>
+              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", marginBottom: 4, fontWeight: 600 }}>BEHAVIORAL CONTAMINATION</div>
+              <div style={{ fontSize: 8, color: DIM, marginBottom: 6, lineHeight: 1.5 }}>
+                How much of smoking/inactivity/substance use is caused by medication side effects?
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="range" min={0} max={60} value={contamination}
+                  onChange={(e) => setContamination(Number(e.target.value))}
+                  style={{ flex: 1, accentColor: PINK }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: PINK, minWidth: 36, textAlign: "right" }}>{contamination}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 400 }}>
+            {dec.impossible ? (
+              <div style={{ background: PANEL, borderRadius: 8, border: `1px solid ${RED}44`, padding: 40, textAlign: "center" }}>
+                <div style={{ fontSize: 14, color: RED, fontWeight: 700, marginBottom: 8 }}>Decomposition impossible at f={Math.round(cohort.f * 100)}%</div>
+                <div style={{ fontSize: 11, color: DIM }}>
+                  Suicide SMR of {cohort.smr_sui}x applied to f={Math.round(cohort.f * 100)}% exceeds all-cause SMR of {cohort.smr_all}x.
+                </div>
+              </div>
+            ) : (
+              <>
+                {tab === "buckets" && <BucketView results={results} excessNonSui={dec.excessNonSui} expandedBucket={expandedBucket} setExpandedBucket={setExpandedBucket} />}
+                {tab === "full" && <FullView results={results} dec={dec} cohort={cohort} contamination={contamination} />}
+                {tab === "probability" && <ProbView results={results} dec={dec} contamination={contamination} />}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
