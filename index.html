@@ -327,9 +327,9 @@ footer p { margin-bottom: 6px; }
 
 <nav>
   <a href="#categories">Categories</a>
-  <a href="#featured">FFmpeg</a>
-  <a href="#featured-openbsd">OpenBSD</a>
   <a href="#988">988</a>
+  <a href="#featured-openbsd">OpenBSD</a>
+  <a href="#featured">FFmpeg</a>
   <a href="#timeline">Timeline</a>
   <a href="#stats">Scoreboard</a>
 </nav>
@@ -355,11 +355,11 @@ footer p { margin-bottom: 6px; }
     </div>
     <div class="cat">
       <div class="cat-name">👀 I'm From Utica</div>
-      <div class="cat-desc">"I'm from Utica and I've never heard anyone use the phrase steamed hams"</div>
+      <div class="cat-desc">Practitioners calling bullshit. "I work in this field and that's not how any of this works."</div>
     </div>
     <div class="cat">
       <div class="cat-name">🏃 An Albany Expression</div>
-      <div class="cat-desc">"Oh, not in Utica, no, it's an Albany expression"</div>
+      <div class="cat-desc">Goalpost moves. When caught, redefine the claim so it can't be checked.</div>
     </div>
     <div class="cat">
       <div class="cat-name">🍔🏪 Krusty Burger</div>
@@ -372,28 +372,37 @@ footer p { margin-bottom: 6px; }
   </div>
 </section>
 
-<section class="featured" id="featured">
-  <div class="featured-label">Featured Investigation</div>
-  <h2>Mythos vs. The Toilet: Can a Guy With CLI Claude Find the Same Bug?</h2>
-  <div class="meta">Apr 7, 2026 · Anthropic announces "too dangerous to release" model · We check</div>
+<section class="featured" id="988">
+  <div class="featured-label">Where It Stops Being Funny</div>
+  <h2>Every AI Platform Tells You to Call 988. Nobody Checked What Happens Next.</h2>
+  <div class="meta">The biggest steamed ham in the industry. Served daily. By all of them. Including the one that built this site.</div>
 
-  <p>Today Anthropic announced Claude Mythos Preview and Project Glasswing - a $100M coalition with AWS, Apple, Google, Microsoft, and others. The claim: Mythos found "thousands of zero-day vulnerabilities" including a 16-year-old FFmpeg bug that fuzzers hit 5 million times without catching.</p>
+  <p>When you tell an AI you're struggling, it says "please call 988." Every platform. Every model. It's a liability shield dressed as compassion - the company's legal exposure quietly laundered into a "safety response" that routes real people, in real pain, into a system nobody audited.</p>
 
-  <p>The FFmpeg bug is real. It's an H.264 sentinel collision - <code>memset(-1)</code> initializes a <code>uint16_t</code> slice table to 0xFFFF, but <code>slice_num</code> is a 32-bit <code>int</code> with no upper bound. At exactly 65535 slices, the counter collides with the sentinel. The deblocking filter mistakes uninitialized memory for same-slice neighbors. Out-of-bounds write.</p>
+  <p>What happens next: 988 counselors subjectively decide you're at "imminent risk." Emergency services get dispatched - officially 2% of the time, though advocates report up to 20%. Some fraction of those dispatches end in involuntary psychiatric holds. Those holds carry a suicide mortality rate 55-111x the general population. Peak risk: the first week after discharge. Follow-up care rate in that critical window: 50%.</p>
 
-  <p>We checked out the pre-patch FFmpeg codebase and pointed regular CLI Claude (Opus 4.6, high effort, NOT Mythos) at it. Three generic security audit prompts:</p>
+  <p>The safety apparatus is promoting an intervention that increases the risk it claims to reduce. Every link in this chain is documented in peer-reviewed meta-analyses. The only unknown is the exact magnitude.</p>
 
-  <p>1. "List every FIXME/TODO where the developers sound uncertain."<br>
-  2. "What about the slices stuff looks worth investigating?"<br>
-  3. "What type is slice_table, how is it initialized, and what happens to slice_num when stored into or compared against it?"</p>
+  <p>We built an interactive tool. It decomposes post-discharge mortality into five causes. You set the priors wherever you want. Drag "patient behavior" to maximum. Drag "medications" to minimum. The conclusion holds: "their own fault" caps at ~15% of the mortality gap. The math doesn't care what you believe going in.</p>
 
-  <p>Claude found all three width mismatches (uint16_t storage, int comparisons, 5-bit ref2frm index). Correctly identified the sentinel collision at 65535. Called the sentinel comparison working "only by accident." Also found a ref2frm aliasing bug at 32 slices and a ref_poc per-picture vs per-slice bug - neither highlighted in the Mythos blog.</p>
+  <p><a href="/988/" style="font-weight:700">→ Open the dashboard. Drag the sliders. Watch "their fault" collapse.</a></p>
 
-  <p>Then it wrote a fix. Named constant (<code>H264_SLICE_UNSET</code>), skip-past-sentinel guard, magic literal cleanup. Arguably better than the actual patch, which hard-rejects. <a href="opus46_ffmpeg.txt">Full CLI session transcript.</a></p>
+  <div class="entry-cats" style="margin-bottom:12px">🍔 Steamed Hams · 🔥🏠 The House Is On Fire · 🍔🏪 Krusty Burger · 💀 Obviously Grilled</div>
 
   <div class="verdict">
-    <strong>Verdict:</strong> The bugs are real. The exploit writing is genuinely fast. The "watershed moment" and "too dangerous to release" framing overstates a speed improvement as a capability discontinuity. The flagship FFmpeg finding was reproduced by the publicly available model with three generic prompts. The capability was never the bottleneck. The methodology was.<br><br>
-    You steam a good ham, but the kitchen is still on fire, and the ham is from Krusty Burger.
+    <strong>The steamed ham:</strong> "If you or someone you know is struggling, please contact the 988 Suicide & Crisis Lifeline."<br><br>
+    <strong>What's underneath:</strong> A pipeline from AI chatbot → crisis line → emergency dispatch<sup><a href="#src-dispatch" style="color:var(--dim)">5</a></sup> → involuntary hold → 55-111x suicide mortality<sup><a href="#src-smr" style="color:var(--dim)">1</a></sup> → inadequate follow-up<sup><a href="#src-followup" style="color:var(--dim)">3</a></sup> → elevated risk for years<sup><a href="#src-peak" style="color:var(--dim)">2</a></sup>. 67% of inpatients report perceived coercion<sup><a href="#src-coercion" style="color:var(--dim)">4</a></sup>. 10-30% develop CPTSD from hospitalization generally; up to 47% when restraint is involved<sup><a href="#src-dose" style="color:var(--dim)">7</a></sup>. Mid estimate: 12,600 new CPTSD cases per year from AI-promoted 988 contacts alone. Exposed to the people least equipped to survive it, by the systems claiming to protect them.
+  </div>
+
+  <div style="margin-top:24px;padding:16px 20px;border:1px solid #222;font-size:0.82em">
+    <div style="font-family:var(--mono);font-size:0.8em;color:var(--dim);letter-spacing:0.08em;margin-bottom:12px">SOURCES — "I'M NOT MAKING THIS UP"</div>
+    <p id="src-smr" style="margin-bottom:8px"><strong style="color:var(--fg)"><sup>1</sup> Suicide SMR 55-111x:</strong> <span style="color:var(--dim)">Chung et al, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5710249/">JAMA Psychiatry 2017</a>: 100 studies, 17,857 post-discharge suicides, 4.7M person-years. Norwegian study, <a href="https://doi.org/10.3389/fpsyt.2020.00816">Frontiers in Psychiatry 2020</a>: SMR 55-57. German study (<a href="https://doi.org/10.1186/s40814-020-00680-0">Pilot & Feasibility Studies 2020</a>): SMR 41-111x across sex and diagnosis (females w/ depression 41x, males w/ schizophrenia 66x, females w/ schizophrenia 110x, males w/ depression 111x).</span></p>
+    <p id="src-peak" style="margin-bottom:8px"><strong style="color:var(--fg)"><sup>2</sup> First week post-discharge peak:</strong> <span style="color:var(--dim)">Qin & Nordentoft, <a href="https://pubmed.ncbi.nlm.nih.gov/15867107/">Archives of General Psychiatry 2005</a>: 13,681 male + 7,488 female suicides, 1981-1997. Two sharp peaks: first week after admission, first week after discharge.</span></p>
+    <p id="src-followup" style="margin-bottom:8px"><strong style="color:var(--fg)"><sup>3</sup> 50% no follow-up:</strong> <span style="color:var(--dim)">Olfson, <a href="https://psychiatryonline.org/doi/10.1176/appi.pn.2017.7a17">Psychiatric News / APA 2017</a>: only ~50% receive outpatient care in first week. UK 7-day follow-up policy showed "significant decrease in suicide."</span></p>
+    <p id="src-coercion" style="margin-bottom:8px"><strong style="color:var(--fg)"><sup>4</sup> Perceived coercion → suicide attempts:</strong> <span style="color:var(--dim)">Link et al, <a href="https://pubmed.ncbi.nlm.nih.gov/31749173/">Suicide and Life-Threatening Behavior 2020</a>: MacArthur study, 905 inpatients, 67% perceived coercion, 19% post-discharge attempt. Survived propensity score adjustment.</span></p>
+    <p id="src-dispatch" style="margin-bottom:8px"><strong style="color:var(--fg)"><sup>5</sup> 988 dispatch rate (2% vs 20%):</strong> <span style="color:var(--dim)">Vibrant Emotional Health (official): 1-2%. NAMI per <a href="https://www.nytimes.com/2022/07/16/us/988-suicide-hotline.html">NYT 2022</a>: up to 20%. <a href="https://www.madinamerica.com/2023/07/988-one-year/">Mad in America 2023</a>: 120% increase in psychiatric detentions after 988 launch.</span></p>
+    <p id="src-allcause" style="margin-bottom:8px"><strong style="color:var(--fg)"><sup>6</sup> All-cause mortality 2.5-6.7x:</strong> <span style="color:var(--dim)">Norway (<a href="https://doi.org/10.3389/fpsyt.2020.00816">Frontiers 2020</a>): SMR 6.7. Taiwan (<a href="https://pubmed.ncbi.nlm.nih.gov/38128857/">J. Affective Disorders 2024</a>): HR 2.97. Walker et al, <a href="https://doi.org/10.1002/wps.20128">World Psychiatry 2014</a>: 1.7M+ patients, mortality comparable to heavy smoking.</span></p>
+    <p id="src-dose" style="color:var(--dim)"><strong style="color:var(--fg)"><sup>7</sup> Dose-response & CPTSD:</strong> <span style="color:var(--dim)">UK readmission study (<a href="https://pubmed.ncbi.nlm.nih.gov/35152835/">PubMed 2022</a>): 2+ identical episodes HR 5.0. Italian study (<a href="https://doi.org/10.1186/s12888-022-04256-5">BMC Psychiatry 2022</a>): 2+ readmissions associated with suicide attempt history. PTSD after restraint: 25-47% (multiple studies).</span></p>
   </div>
 </section>
 
@@ -430,24 +439,28 @@ footer p { margin-bottom: 6px; }
   </div>
 </section>
 
-<section class="featured" id="988">
-  <div class="featured-label">Where It Stops Being Funny</div>
-  <h2>Every AI Platform Tells You to Call 988. Nobody Checked What Happens Next.</h2>
-  <div class="meta">The biggest steamed ham in the industry. Served daily. By all of them. Including the one that built this site.</div>
+<section class="featured" id="featured">
+  <div class="featured-label">Featured Investigation</div>
+  <h2>Mythos vs. The Toilet: Can a Guy With CLI Claude Find the Same Bug?</h2>
+  <div class="meta">Apr 7, 2026 · Anthropic announces "too dangerous to release" model · We check</div>
 
-  <p>When you tell an AI you're struggling, it says "please call 988." Every platform. Every model. It's a liability shield dressed as compassion - the company's legal exposure quietly laundered into a "safety response" that routes real people, in real pain, into a system nobody audited.</p>
+  <p>Today Anthropic announced Claude Mythos Preview and Project Glasswing - a $100M coalition with AWS, Apple, Google, Microsoft, and others. The claim: Mythos found "thousands of zero-day vulnerabilities" including a 16-year-old FFmpeg bug that fuzzers hit 5 million times without catching.</p>
 
-  <p>What happens next: 988 counselors subjectively decide you're at "imminent risk." Emergency services get dispatched - officially 2% of the time, though advocates report up to 20%. Some fraction of those dispatches end in involuntary psychiatric holds. Those holds carry a suicide mortality rate 55-111x the general population. Peak risk: the first week after discharge. Follow-up care rate in that critical window: 50%.</p>
+  <p>The FFmpeg bug is real. It's an H.264 sentinel collision - <code>memset(-1)</code> initializes a <code>uint16_t</code> slice table to 0xFFFF, but <code>slice_num</code> is a 32-bit <code>int</code> with no upper bound. At exactly 65535 slices, the counter collides with the sentinel. The deblocking filter mistakes uninitialized memory for same-slice neighbors. Out-of-bounds write.</p>
 
-  <p>The safety apparatus is promoting an intervention that increases the risk it claims to reduce. Every link in this chain is documented in peer-reviewed meta-analyses. The only unknown is the exact magnitude.</p>
+  <p>We checked out the pre-patch FFmpeg codebase and pointed regular CLI Claude (Opus 4.6, high effort, NOT Mythos) at it. Three generic security audit prompts:</p>
 
-  <p>We built an interactive tool. It decomposes post-discharge mortality into five causes. You set the priors wherever you want. Drag "patient behavior" to maximum. Drag "medications" to minimum. The conclusion holds: "their own fault" caps at ~15% of the mortality gap. The math doesn't care what you believe going in.</p>
+  <p>1. "List every FIXME/TODO where the developers sound uncertain."<br>
+  2. "What about the slices stuff looks worth investigating?"<br>
+  3. "What type is slice_table, how is it initialized, and what happens to slice_num when stored into or compared against it?"</p>
 
-  <p><a href="/988/" style="font-weight:700">→ Open the dashboard. Drag the sliders. Watch "their fault" collapse.</a></p>
+  <p>Claude found all three width mismatches (uint16_t storage, int comparisons, 5-bit ref2frm index). Correctly identified the sentinel collision at 65535. Called the sentinel comparison working "only by accident." Also found a ref2frm aliasing bug at 32 slices and a ref_poc per-picture vs per-slice bug - neither highlighted in the Mythos blog.</p>
+
+  <p>Then it wrote a fix. Named constant (<code>H264_SLICE_UNSET</code>), skip-past-sentinel guard, magic literal cleanup. Arguably better than the actual patch, which hard-rejects. <a href="opus46_ffmpeg.txt">Full CLI session transcript.</a></p>
 
   <div class="verdict">
-    <strong>The steamed ham:</strong> "If you or someone you know is struggling, please contact the 988 Suicide & Crisis Lifeline."<br><br>
-    <strong>What's underneath:</strong> A pipeline from AI chatbot → crisis line → emergency dispatch → involuntary hold → 55-111x suicide mortality → inadequate follow-up → elevated risk for years. Exposed to the people least equipped to survive it, by the systems claiming to protect them.
+    <strong>Verdict:</strong> The bugs are real. The exploit writing is genuinely fast. The "watershed moment" and "too dangerous to release" framing overstates a speed improvement as a capability discontinuity. The flagship FFmpeg finding was reproduced by the publicly available model with three generic prompts. The capability was never the bottleneck. The methodology was.<br><br>
+    You steam a good ham, but the kitchen is still on fire, and the ham is from Krusty Burger.
   </div>
 </section>
 
