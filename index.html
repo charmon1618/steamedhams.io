@@ -387,7 +387,7 @@ footer p { margin-bottom: 6px; }
 
   <p>Claude found all three width mismatches (uint16_t storage, int comparisons, 5-bit ref2frm index). Correctly identified the sentinel collision at 65535. Called the sentinel comparison working "only by accident." Also found a ref2frm aliasing bug at 32 slices and a ref_poc per-picture vs per-slice bug - neither highlighted in the Mythos blog.</p>
 
-  <p>Then it wrote a fix. Named constant (<code>H264_SLICE_UNSET</code>), skip-past-sentinel guard, magic literal cleanup. Arguably better than the actual patch, which hard-rejects.</p>
+  <p>Then it wrote a fix. Named constant (<code>H264_SLICE_UNSET</code>), skip-past-sentinel guard, magic literal cleanup. Arguably better than the actual patch, which hard-rejects. <a href="opus46_ffmpeg.txt">Full CLI session transcript.</a></p>
 
   <div class="verdict">
     <strong>Verdict:</strong> The bugs are real. The exploit writing is genuinely fast. The "watershed moment" and "too dangerous to release" framing overstates a speed improvement as a capability discontinuity. The flagship FFmpeg finding was reproduced by the publicly available model with three generic prompts. The capability was never the bottleneck. The methodology was.<br><br>
