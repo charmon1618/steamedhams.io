@@ -57,7 +57,7 @@ const BUCKETS = [
     short: "Weight / diabetes",
     color: AMBER,
     defaultWeight: 22,
-    evidence: "Olanzapine: 4-7kg weight gain year 1. CATIE trial: 30% gained >7% body weight in 18 months. 30-40% develop metabolic syndrome beyond baseline. The DIFFERENCE between olanzapine and aripiprazole isolates the iatrogenic component. Takes 5-15 years to kill via MI, stroke, diabetic complications.",
+    evidence: "Olanzapine: 4-7kg weight gain year 1. CATIE: 30% of the olanzapine arm gained >7% body weight over 18 months (7-16% on the other four drugs). 30-40% develop metabolic syndrome beyond baseline. The DIFFERENCE between olanzapine and aripiprazole isolates the iatrogenic component. Takes 5-15 years to kill via MI, stroke, diabetic complications.",
     category: "iatrogenic",
   },
   {
@@ -91,16 +91,16 @@ const BUCKETS = [
 
 // Reference cohorts. f = suicide's share of EXPECTED deaths in the matched general population.
 // Prestmo et al (Front Psychiatry 2020): 380 patients discharged from an acute psychiatric department in
-// Trondheim, all ages, 5-year follow-up. 36 deaths: 19 natural, 17 unnatural, suicide the most common
-// unnatural cause. All-cause SMR 6.7 (95% CI 4.6-8.8). Suicide SMR 55 in men (18.9-90.2), 57 in women
+// Trondheim, all ages, 5-year follow-up. 39 deaths: 19 natural, 17 unnatural, 3 of unknown cause; 13 of the
+// unnatural deaths were suicides. All-cause SMR 6.7 (95% CI 4.6-8.8). Suicide SMR 55 in men (18.9-90.2), 57 in women
 // (1.1-113.1). Those CI widths imply about 9 male and 4 female suicides (Wald half-width = 1.96 x SMR / sqrt n),
-// so about 13 of the 36 deaths. Identity: suicides/deaths = smr_sui x f / smr_all, which gives f = 0.044.
-const prestmoRow = (label, f, note) => ({ label, f, note, smr_all: 6.7, smr_sui: 55, deaths: 36, base: 0.003, ci: { smr_all: [4.6, 8.8], smr_sui: [18.9, 90.2] } });
+// matching the paper's 13. Identity: suicides/deaths = smr_sui x f / smr_all, so f = (13/39) x 6.7 / 55 = 0.0406.
+const prestmoRow = (label, f, note) => ({ label, f, note, smr_all: 6.7, smr_sui: 55, deaths: 39, base: 0.003, ci: { smr_all: [4.6, 8.8], smr_sui: [18.9, 90.2] } });
 const COHORTS = [
-  prestmoRow("Norway acute ward, source-consistent", 0.044,
-    "Prestmo 2020. f set so the cohort's implied suicides (13 of 36 deaths) match the published CIs. Point SMRs 6.7 and 55 as published. Baseline mortality 0.3%/yr for this all-ages mix."),
-  prestmoRow("Same cohort, max suicide share", 0.0575,
-    "Upper bound: all 17 unnatural deaths counted as suicide. The highest f the paper's counts allow; anything higher needs more suicides than the cohort had unnatural deaths."),
+  prestmoRow("Norway acute ward, source-consistent", 0.0406,
+    "Prestmo 2020. 13 suicides among 39 deaths, as published and as implied by the suicide-SMR CIs. Point SMRs 6.7 and 55 as published. Baseline mortality 0.3%/yr for this all-ages mix."),
+  prestmoRow("Same cohort, max suicide share", 0.0531,
+    "Upper bound on known causes: all 17 unnatural deaths counted as suicide. Counting the 3 unknown-cause deaths as suicide too would give f = 0.0625."),
   prestmoRow("Same SMRs, US 25-54 death mix", 0.06,
     "Sensitivity check. Norwegian SMRs applied to the US working-age cause-of-death mix, where suicide is roughly 6% of all deaths. Slightly more suicide than the source cohort supports."),
   { label: "Taiwan first-admission youth (HRs)", f: 0.15, smr_all: 2.97, smr_sui: 10, deaths: null, base: 0.0004, ci: null,
@@ -461,7 +461,7 @@ function ProbView({ results, cohort, contamination, attribution, conc, ceiling, 
         <div style={{ fontSize: 9, color: DIM, lineHeight: 1.7 }}>
           Additive model: real risk factors interact (system failure multiplies metabolic damage; obesity plus smoking is more than additive). Attributable fractions can exceed 100% in biology; this model constrains them and underestimates individual contributions. System failure would be better modeled as a multiplier than as a bucket.
           Priors are hand-set: a Dirichlet whose mean is the normalized slider weights, concentration {conc}. Bands and probabilities describe those priors, not evidence.
-          Study inputs: one Norwegian cohort of 380 patients with 36 deaths. Sampling error is carried by treating its suicide and other deaths as Poisson counts{cohort.deaths ? ` (${draw.stats.implied.suicides.toFixed(1)} and ${draw.stats.implied.other.toFixed(1)} implied for this row)` : " (not applied to this row: counts not extracted)"}. The published suicide SMR interval is wide (19-90 in men, 1-113 in women). Applying these SMRs to other death mixes is a sensitivity check only.
+          Study inputs: one Norwegian cohort of 380 patients with 39 deaths. Sampling error is carried by treating its suicide and other deaths as Poisson counts{cohort.deaths ? ` (${draw.stats.implied.suicides.toFixed(1)} and ${draw.stats.implied.other.toFixed(1)} implied for this row)` : " (not applied to this row: counts not extracted)"}. The published suicide SMR interval is wide (19-90 in men, 1-113 in women). Applying these SMRs to other death mixes is a sensitivity check only.
           Suicide attribution: putting suicide excess on the system is a causal assumption, and confounding by indication (people are admitted because they are suicidal) is the obvious objection. The attribution slider exists so a reader can test it instead of arguing about it.
         </div>
       </div>
